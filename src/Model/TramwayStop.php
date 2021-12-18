@@ -4,10 +4,12 @@ declare(strict_types=1);
 
 namespace App\Model;
 
+use DateTime;
+
 class TramwayStop
 {
     private string $course;
-    private string $stopCode;
+    private ?string $stopCode = null;
     private int $stopId;
     private int $routeShortName;
     private string $tripHeadsign;
@@ -29,7 +31,7 @@ class TramwayStop
         return $this;
     }
 
-    public function getStopCode(): string
+    public function getStopCode(): ?string
     {
         return $this->stopCode;
     }
@@ -94,9 +96,9 @@ class TramwayStop
         return $this->departureTime;
     }
 
-    public function setDepartureTime(\DateTimeInterface $departureTime): self
+    public function setDepartureTime(string $departureTime): self
     {
-        $this->departureTime = $departureTime;
+        $this->departureTime = new DateTime($departureTime);
 
         return $this;
     }
