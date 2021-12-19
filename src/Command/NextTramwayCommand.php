@@ -127,7 +127,7 @@ class NextTramwayCommand extends Command
 
     private function formatTramwayStopToString(TramwayStop $tramwayStop): string
     {
-        return '🚈 Destination '.$tramwayStop->getTripHeadsign().', arrivée dans '. floor($tramwayStop->getDelaySec()/60).' minutes.';
+        return '🚈 Destination '.$tramwayStop->getTripHeadsign().', arrivée dans <fg=yellow;options=bold>'. floor($tramwayStop->getDelaySec()/60).'</> minutes.';
     }
 
     private function sortByWaitingTimeAsc(array &$tramwayStops): void
