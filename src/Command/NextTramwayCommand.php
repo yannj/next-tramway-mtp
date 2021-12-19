@@ -3,6 +3,7 @@
 namespace App\Command;
 
 use App\Model\TramwayStop;
+use Exception;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Input\InputOption;
@@ -50,13 +51,35 @@ class NextTramwayCommand extends Command
     protected function execute(InputInterface $input, OutputInterface $output): int
     {
         $io = new SymfonyStyle($input, $output);
-
         $io->info('✉️  Fetching realtime data from TAM API');
-        $response = $this->client->request('GET', self::FILE_URL);
-        if (Response::HTTP_OK !== $response->getStatusCode()) {
-            $io->error('❌ Cannot fetch the tramway stops, got status code '.$response->getStatusCode());
+        try {
+            $tramwayStops = $this->fetchTramwayStops();
+        } catch (Exception $exception) {
+            $io->error($exception->getMessage());
 
             return Command::FAILURE;
+        }
+
+        $tramwayStopsAtMyStation = array_filter($tramwayStops, fn (TramwayStop $tramwayStop) => $this->isInMyTramwayStation($tramwayStop));
+        $linesToConsider = self::TRAMWAY_LINES;
+        $lineOption = intval($input->getOption('line'));
+        $linesToConsider = array_filter(self::TRAMWAY_LINES, fn (int $line) => !$lineOption || $lineOption === $line);
+
+        foreach ($linesToConsider as $line) {
+            $this->displayTramwayStopsForLine($io, $tramwayStopsAtMyStation, $line, $input->getOption('direction'));
+        }
+
+        return Command::SUCCESS;
+    }
+
+    /**
+     * @return array<TramwayStop> $tramwayStops
+     */
+    private function fetchTramwayStops(): array
+    {
+        $response = $this->client->request('GET', self::FILE_URL);
+        if (Response::HTTP_OK !== $response->getStatusCode()) {
+            throw new Exception('❌ Cannot fetch the tramway stops, got status code '.$response->getStatusCode());
         }
         $content = $response->getContent();
 
@@ -64,24 +87,9 @@ class NextTramwayCommand extends Command
             [new GetSetMethodNormalizer(null, new CamelCaseToSnakeCaseNameConverter()), new ArrayDenormalizer()],
             [new CsvEncoder()]
         );
-        $tramwayStops = $serializer->deserialize($content, TramwayStop::class . '[]', 'csv', [
+        return $serializer->deserialize($content, TramwayStop::class . '[]', 'csv', [
             'csv_delimiter' => ';',
         ]);
-
-        $tramwayStopsAtMyStation = array_filter($tramwayStops, fn (TramwayStop $tramwayStop) => $this->isInMyTramwayStation($tramwayStop));
-
-        $line = $input->getOption('line');
-        if ($line) {
-            $this->displayTramwayStopsForLine($io, $tramwayStopsAtMyStation, intval($line), $input->getOption('direction'));
-
-            return Command::SUCCESS;
-        }
-
-        foreach (self::TRAMWAY_LINES as $line) {
-            $this->displayTramwayStopsForLine($io, $tramwayStopsAtMyStation, $line, $input->getOption('direction'));
-        }
-
-        return Command::SUCCESS;
     }
 
     private function isInMyTramwayStation(TramwayStop $tramwayStop): bool
